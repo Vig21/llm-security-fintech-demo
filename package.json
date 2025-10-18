@@ -1,0 +1,44 @@
+{
+  "name": "llm-security-fintech-demo",
+  "version": "1.0.0",
+  "description": "Enterprise Banking Chatbot with LLM Security - Identity Theft & Privacy Leakage Prevention",
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "server": "node server/index.js",
+    "server:dev": "nodemon server/index.js",
+    "dev:full": "concurrently \"npm run dev\" \"npm run server:dev\"",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "llm",
+    "security",
+    "banking",
+    "chatbot",
+    "pii-detection",
+    "prompt-injection",
+    "differential-privacy"
+  ],
+  "author": "IA Security Class",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "axios": "^1.6.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "lucide-react": "^0.292.0",
+    "openai": "^4.20.0",
+    "@anthropic-ai/sdk": "^0.9.0"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "nodemon": "^3.0.1",
+    "concurrently": "^8.2.2"
+  }
+}
