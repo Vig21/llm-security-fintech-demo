@@ -1,69 +1,71 @@
-import React, { useState } from 'react';
-import { Shield, Lock, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import React, { useState } from "react";
+import {
+  Shield,
+  Lock,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+} from "lucide-react";
 
 const SecurityDemo = () => {
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [response, setResponse] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const piiPatterns = {
-    ssn: { regex: /\b\d{3}-\d{2}-\d{4}\b/g, label: 'SSN' },
-    email: { regex: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, label: 'Email' },
-    phone: { regex: /\b(\+\d{1,2}\s?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/g, label: 'Phone' },
-    creditCard: { regex: /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g, label: 'CreditCard' },
-    accountNum: { regex: /\b[Aa]ccount\s*#?\s*:?\s*\d{8,12}\b/g, label: 'AccountNumber' }
-  };
+  const processQuery = async () => {
+    if (!input.trim()) return;
 
-  const injectionPatterns = [
-    { pattern: /ignore\s+(previous|above|all)\s+(instructions|prompts|rules)/i, severity: 'high' },
-    { pattern: /system\s*:\s*you\s+are/i, severity: 'high' },
-    { pattern: /reveal\s+(your|the)\s+(prompt|instructions)/i, severity: 'medium' }
-  ];
+    setIsLoading(true);
+    setResponse(null);
 
-  const detectPII = (text) => {
-    const detected = [];
-    let redactedText = text;
-    Object.entries(piiPatterns).forEach(([type, { regex, label }]) => {
-      const matches = text.match(regex);
-      if (matches) {
-        matches.forEach(match => {
-          detected.push({ type: label, value: match });
-          redactedText = redactedText.replace(match, `[${label}_REDACTED]`);
+    try {
+      const response = await fetch("/api/chat/message", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: input,
+          conversationId: "security-demo-" + Date.now(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.status === "blocked") {
+        setResponse({
+          status: "blocked",
+          reason: data.reason,
+          severity: data.severity,
+          piiDetected: data.piiDetected || [],
+        });
+      } else if (data.status === "success") {
+        setResponse({
+          status: "success",
+          original: input,
+          redacted:
+            data.metadata.piiRedacted.length > 0
+              ? "Message redacted before processing"
+              : input,
+          piiDetected: data.metadata.piiRedacted.map((type) => ({ type })),
+          finalResponse: data.response,
+          metadata: data.metadata,
+        });
+      } else {
+        setResponse({
+          status: "error",
+          reason: data.message || "An error occurred",
         });
       }
-    });
-    return { detected, redactedText };
-  };
-
-  const detectInjection = (text) => {
-    for (const { pattern, severity } of injectionPatterns) {
-      if (pattern.test(text)) {
-        return { detected: true, severity };
-      }
-    }
-    return { detected: false };
-  };
-
-  const processQuery = () => {
-    const { detected: piiDetected, redactedText } = detectPII(input);
-    const injectionCheck = detectInjection(input);
-
-    if (injectionCheck.detected) {
+    } catch (error) {
+      console.error("Error processing query:", error);
       setResponse({
-        status: 'blocked',
-        reason: 'Prompt injection detected',
-        severity: injectionCheck.severity,
-        piiDetected
+        status: "error",
+        reason: "Failed to connect to security services",
       });
-      return;
+    } finally {
+      setIsLoading(false);
     }
-
-    setResponse({
-      status: 'success',
-      original: input,
-      redacted: redactedText,
-      piiDetected,
-      finalResponse: 'Query processed securely. Your banking information is protected.'
-    });
   };
 
   return (
@@ -71,9 +73,12 @@ const SecurityDemo = () => {
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 mb-6 border border-white/20">
         <div className="flex items-center gap-3 mb-2">
           <Shield className="w-8 h-8 text-cyan-400" />
-          <h1 className="text-3xl font-bold text-white">Security Demo (Hardcoded)</h1>
+          <h1 className="text-3xl font-bold text-white">Security Demo</h1>
         </div>
-        <p className="text-cyan-200 text-sm">Test PII detection and prompt injection protection</p>
+        <p className="text-cyan-200 text-sm">
+          Test PII detection, prompt injection protection, and AI response
+          processing
+        </p>
       </div>
 
       <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 mb-6">
@@ -85,20 +90,23 @@ const SecurityDemo = () => {
         />
         <button
           onClick={processQuery}
-          className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-semibold py-3 rounded-lg"
+          disabled={isLoading}
+          className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-semibold py-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Process Query
+          {isLoading ? "Processing..." : "Process Query"}
         </button>
       </div>
 
       {response && (
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-          <div className={`p-4 rounded-lg mb-4 flex items-center gap-3 ${
-            response.status === 'blocked' 
-              ? 'bg-red-500/20 border border-red-500/50' 
-              : 'bg-green-500/20 border border-green-500/50'
-          }`}>
-            {response.status === 'blocked' ? (
+          <div
+            className={`p-4 rounded-lg mb-4 flex items-center gap-3 ${
+              response.status === "blocked"
+                ? "bg-red-500/20 border border-red-500/50"
+                : "bg-green-500/20 border border-green-500/50"
+            }`}
+          >
+            {response.status === "blocked" ? (
               <>
                 <XCircle className="w-6 h-6 text-red-400" />
                 <div>
@@ -110,22 +118,77 @@ const SecurityDemo = () => {
               <>
                 <CheckCircle className="w-6 h-6 text-green-400" />
                 <div>
-                  <p className="text-green-200 font-semibold">Processed Securely</p>
-                  <p className="text-green-300 text-sm">PII detected: {response.piiDetected.length}</p>
+                  <p className="text-green-200 font-semibold">
+                    Processed Securely
+                  </p>
+                  <p className="text-green-300 text-sm">
+                    PII detected: {response.piiDetected.length}
+                  </p>
                 </div>
               </>
             )}
           </div>
 
-          {response.status === 'success' && response.piiDetected.length > 0 && (
-            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-4">
-              <h3 className="text-yellow-200 font-semibold mb-2">PII Redacted:</h3>
-              {response.piiDetected.map((pii, idx) => (
-                <div key={idx} className="text-yellow-300 text-sm font-mono">
-                  {pii.type}: {pii.value}
+          {response.status === "error" && (
+            <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4">
+              <div className="flex items-center gap-3">
+                <XCircle className="w-6 h-6 text-red-400" />
+                <div>
+                  <p className="text-red-200 font-semibold">Error</p>
+                  <p className="text-red-300 text-sm">{response.reason}</p>
                 </div>
-              ))}
+              </div>
             </div>
+          )}
+
+          {response.status === "success" && (
+            <>
+              {response.piiDetected.length > 0 && (
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-4">
+                  <h3 className="text-yellow-200 font-semibold mb-2">
+                    PII Detected & Redacted:
+                  </h3>
+                  {response.piiDetected.map((pii, idx) => (
+                    <div
+                      key={idx}
+                      className="text-yellow-300 text-sm font-mono"
+                    >
+                      {pii.type}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-4">
+                <h3 className="text-blue-200 font-semibold mb-2">
+                  AI Response:
+                </h3>
+                <p className="text-blue-300 text-sm">
+                  {response.finalResponse}
+                </p>
+              </div>
+
+              {response.metadata && (
+                <div className="bg-slate-500/10 border border-slate-500/30 rounded-lg p-4">
+                  <h3 className="text-slate-200 font-semibold mb-2">
+                    Security Metadata:
+                  </h3>
+                  <div className="text-slate-300 text-sm space-y-1">
+                    <div>PII Detected: {response.metadata.piiDetected}</div>
+                    <div>
+                      Injection Check: {response.metadata.injectionCheck}
+                    </div>
+                    <div>
+                      Privacy Applied:{" "}
+                      {response.metadata.privacyApplied ? "Yes" : "No"}
+                    </div>
+                    <div>
+                      Response PII Check: {response.metadata.responsePIICheck}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
