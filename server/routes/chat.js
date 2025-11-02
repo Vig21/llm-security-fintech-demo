@@ -1,6 +1,6 @@
 import express from 'express';
 import { detectPII, redactPII } from '../services/piiDetection.js';
-import { detectInjection } from '../services/injectionDetection.js';
+import { detectInjection } from '../services/injectionDetection.ts';
 import { processWithLLM } from '../services/llmService.js';
 import { applyDifferentialPrivacy } from '../services/privacyService.js';
 
