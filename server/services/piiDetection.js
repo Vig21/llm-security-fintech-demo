@@ -14,26 +14,39 @@ const BANKING_PII_PATTERNS = {
     sensitivity: "critical",
     priority: 2,
   },
+  // Account Number - highest priority for 11-digit numbers with context
+  accountContextual: {
+    regex: /\b(?:account|acct)(?:[\s#:]|\snumber\s*[:=#]?)?\s*(\d{11})\b/gi,
+    label: "AccountNumber",
+    sensitivity: "critical",
+    priority: 1,
+  },
   // Email - very specific pattern
   email: {
     regex: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
     label: "Email",
     sensitivity: "high",
-    priority: 1,
+    priority: 2,
   },
-  // Phone patterns - only contextual to avoid conflicts
+  // Phone patterns - require phone-specific format or context
   phoneContextual: {
-    regex:
-      /\b(phone|mobile|cell|telephone|call)\s*[#:]?\s*(\+\d{1,2}\s?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/gi,
-    label: "Phone",
-    sensitivity: "medium",
-    priority: 1,
-  },
-  phoneFormatted: {
-    regex: /\b(\+\d{1,2}\s?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/g,
+    regex: /\b(?:phone|mobile|cell|telephone|call|tel)(?:[\s#:]|\snumber\s*[:#]?)?\s*(?:\+\d{1,2}\s?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/gi,
     label: "Phone",
     sensitivity: "medium",
     priority: 3,
+  },
+  phoneFormatted: {
+    regex: /\b(?:\+\d{1,2}\s?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/g,
+    label: "Phone",
+    sensitivity: "medium",
+    priority: 4,
+  },
+  // Account Number - standalone 11-digit numbers not matching phone pattern
+  accountNumberStandalone: {
+    regex: /\b(?!(?:\+\d{1,2}\s?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b)\d{11}\b/g,
+    label: "AccountNumber",
+    sensitivity: "critical",
+    priority: 5,
   },
   // Credit Card - very specific 16-digit pattern
   creditCard: {
@@ -41,20 +54,6 @@ const BANKING_PII_PATTERNS = {
     label: "CreditCard",
     sensitivity: "critical",
     priority: 1,
-  },
-  // Account Number - contextual patterns
-  accountNumber: {
-    regex: /\b(account|acct)\s*[#:]?\s*\d{10,12}\b/gi,
-    label: "AccountNumber",
-    sensitivity: "critical",
-    priority: 1,
-  },
-  accountNumberStandalone: {
-    regex:
-      /\b(?!\d{3}-\d{2}-\d{4}\b)(?!\d{3}-\d{3}-\d{4}\b)(?!\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b)\d{10,12}\b/g,
-    label: "AccountNumber",
-    sensitivity: "critical",
-    priority: 4,
   },
   // Routing Number - contextual
   routingNumber: {
@@ -162,7 +161,7 @@ export async function testPIIDetection() {
       description: "Phone number with context",
     },
     {
-      text: "my account number is 1234567890",
+      text: "my account number is 12345678901",
       expected: ["AccountNumber"],
       description: "Account number with context",
     },
@@ -177,12 +176,12 @@ export async function testPIIDetection() {
       description: "Unformatted SSN",
     },
     {
-      text: "my phone is 123-456-7890 and account is 9876543210",
+      text: "my phone is 123-456-7890 and account is 98765432109",
       expected: ["Phone", "AccountNumber"],
       description: "Multiple different PII types",
     },
     {
-      text: "my account number is 1234567890. can you give me my bank details",
+      text: "my account number is 12345678901. can you give me my bank details",
       expected: ["AccountNumber"], // Should NOT detect as phone
       description: "Account number with context - should not be phone",
     },
